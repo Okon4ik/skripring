@@ -1,0 +1,41 @@
+name: build-exe
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download AutoHotkey (includes Ahk2Exe)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path tools/ahk_mytool/third_party | Out-Null
+          $zip = "$env:TEMP\ahk.zip"
+          Invoke-WebRequest -Uri "https://www.autohotkey.com/download/ahk.zip" -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath "tools/ahk_mytool/third_party/autohotkey" -Force
+          Get-ChildItem -Recurse "tools/ahk_mytool/third_party/autohotkey" | Select-Object FullName
+
+      - name: Compile AHK to EXE
+        shell: pwsh
+        run: |
+          $root = "$PWD/tools/ahk_mytool"
+          $in  = "$root/src/mytool.ahk"
+          $outDir = "$root/out"
+          $out = "$outDir/mytool.exe"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+          # Находим Ahk2Exe.exe внутри распакованного архива (не гадаем путь)
+          $ahk2exe = (Get-ChildItem -Recurse "$root/third_party/autohotkey" -Filter "Ahk2Exe.exe" | Select-Object -First 1).FullName
+          if (-not $ahk2exe) { throw "Ahk2Exe.exe not found after download" }
+
+          & $ahk2exe /in $in /out $out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mytool-win
+          path: tools/ahk_mytool/out/mytool.exe
