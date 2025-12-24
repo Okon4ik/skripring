@@ -1,0 +1,30 @@
+name: build-exe
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Здесь предполагается, что в репо лежит компилятор:
+      # tools/ahk_mytool/third_party/autohotkey/Compiler/Ahk2Exe.exe
+      - name: Compile AHK to EXE
+        shell: pwsh
+        run: |
+          $root = "$PWD/tools/ahk_mytool"
+          $ahk2exe = "$root/third_party/autohotkey/Compiler/Ahk2Exe.exe"
+          $in  = "$root/src/mytool.ahk"
+          $outDir = "$root/out"
+          $out = "$outDir/mytool.exe"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          & $ahk2exe /in $in /out $out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mytool-win
+          path: tools/ahk_mytool/out/mytool.exe
